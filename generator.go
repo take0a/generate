@@ -238,7 +238,7 @@ func (g *Generator) processObject(name string, schema *Schema) (typ string, err 
 	}
 	// additionalProperties as either true (everything) or false (nothing)
 	if schema.AdditionalProperties != nil && schema.AdditionalProperties.AdditionalPropertiesBool != nil {
-		if *schema.AdditionalProperties.AdditionalPropertiesBool == true {
+		if *schema.AdditionalProperties.AdditionalPropertiesBool {
 			// everything is valid additional
 			subTyp := "map[string]interface{}"
 			f := Field{

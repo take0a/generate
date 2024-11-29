@@ -267,7 +267,7 @@ func (strct *%s) UnmarshalJSON(b []byte) error {
 }
 
 func outputNameAndDescriptionComment(name, description string, w io.Writer) {
-	if strings.Index(description, "\n") == -1 {
+	if !strings.Contains(description, "\n") {
 		fmt.Fprintf(w, "// %s %s\n", name, description)
 		return
 	}
@@ -277,7 +277,7 @@ func outputNameAndDescriptionComment(name, description string, w io.Writer) {
 }
 
 func outputFieldDescriptionComment(description string, w io.Writer) {
-	if strings.Index(description, "\n") == -1 {
+	if !strings.Contains(description, "\n") {
 		fmt.Fprintf(w, "\n  // %s\n", description)
 		return
 	}
