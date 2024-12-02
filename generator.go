@@ -60,7 +60,7 @@ func (g *Generator) CreateTypes() (err error) {
 
 // process a block of definitions
 func (g *Generator) processDefinitions(schema *Schema) error {
-	for key, subSchema := range schema.Definitions {
+	for key, subSchema := range schema.Defs() {
 		if _, err := g.processSchema(getGolangName(key), subSchema); err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (g *Generator) processReference(schema *Schema) (string, error) {
 
 // returns the type refered to by schema after resolving all dependencies
 func (g *Generator) processSchema(schemaName string, schema *Schema) (typ string, err error) {
-	if len(schema.Definitions) > 0 {
+	if len(schema.Defs()) > 0 {
 		g.processDefinitions(schema)
 	}
 	schema.FixMissingTypeValue()
@@ -133,7 +133,7 @@ func (g *Generator) processSchema(schemaName string, schema *Schema) (typ string
 			}
 		}
 	} else {
-		if schema.Reference != "" {
+		if schema.Reference != "" && schema.Reference != "#" { // 無限ループ防止
 			return g.processReference(schema)
 		}
 	}
@@ -217,7 +217,7 @@ func (g *Generator) processObject(name string, schema *Schema) (typ string, err 
 		//
 		// If this object is a definition and only contains additional properties, we can't do that or we end up with
 		// no struct
-		isDefinitionObject := strings.HasPrefix(schema.PathElement, "definitions")
+		isDefinitionObject := strings.HasPrefix(schema.PathElement, schema.DefPath())
 		if len(schema.Properties) == 0 && !isDefinitionObject {
 			// since there are no regular properties, we don't need to emit a struct for this object - return the
 			// additionalProperties map type.

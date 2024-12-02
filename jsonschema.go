@@ -10,57 +10,84 @@ import (
 type AdditionalProperties Schema
 
 // Schema represents JSON schema.
+// Versions
+//
+//	2020-12
+//	2019-09
+//	draft-07
+//	draft-06
+//	draft-05
+//	draft-04
 type Schema struct {
+	// TODO
+	//   $anchor
+	//   $dynamicAnchor($recursiveAnchor)
+	//   $dynamicRef($recursiveRef)
+	//   $vocabulary
+
 	// SchemaType identifies the schema version.
 	// http://json-schema.org/draft-07/json-schema-core.html#rfc.section.7
+	// https://json-schema.org/draft/2020-12/json-schema-core#section-8.1.1
 	SchemaType string `json:"$schema"`
 
 	// ID{04,06} is the schema URI identifier.
 	// http://json-schema.org/draft-07/json-schema-core.html#rfc.section.8.2
+	// https://json-schema.org/draft/2020-12/json-schema-core#section-8.2.1
 	ID04 string `json:"id"`  // up to draft-04
-	ID06 string `json:"$id"` // from draft-06 onwards
+	ID_  string `json:"$id"` // from draft-06 onwards
 
 	// Title and Description state the intent of the schema.
-	Title       string
-	Description string
+	// https://json-schema.org/draft/2020-12/json-schema-validation#section-9.1
+	Title       string `json:"title"`
+	Description string `json:"description"`
 
 	// TypeValue is the schema instance type.
 	// http://json-schema.org/draft-07/json-schema-validation.html#rfc.section.6.1.1
+	// https://json-schema.org/draft/2020-12/json-schema-validation#section-6.1.1
 	TypeValue interface{} `json:"type"`
 
 	// Definitions are inline re-usable schemas.
 	// http://json-schema.org/draft-07/json-schema-validation.html#rfc.section.9
-	Definitions map[string]*Schema
+	// https://json-schema.org/draft/2020-12/json-schema-core#section-8.2.4
+	Definitions map[string]*Schema `json:"definitions"`
+	Defs_       map[string]*Schema `json:"$defs"`
 
 	// Properties, Required and AdditionalProperties describe an object's child instances.
 	// http://json-schema.org/draft-07/json-schema-validation.html#rfc.section.6.5
-	Properties map[string]*Schema
-	Required   []string
+	// https://json-schema.org/draft/2020-12/json-schema-validation#section-6.5
+	Properties map[string]*Schema `json:"properties"`
+	Required   []string           `json:"required"`
 
 	// "additionalProperties": {...}
-	AdditionalProperties *AdditionalProperties
+	AdditionalProperties *AdditionalProperties `json:"additionalProperties"`
 
 	// "additionalProperties": false
 	AdditionalPropertiesBool *bool `json:"-"`
 
-	AnyOf []*Schema
-	AllOf []*Schema
-	OneOf []*Schema
+	// https://json-schema.org/draft/2020-12/json-schema-core#section-10.2.1
+	AnyOf []*Schema `json:"anyOf"`
+	AllOf []*Schema `json:"allOf"`
+	OneOf []*Schema `json:"oneOf"`
+	Not   *Schema   `json:"not"`
 
 	// Default can be used to supply a default JSON value associated with a particular schema.
 	// http://json-schema.org/draft-07/json-schema-validation.html#rfc.section.10.2
-	Default interface{}
+	// https://json-schema.org/draft/2020-12/json-schema-validation#section-9.2
+	Default interface{} `json:"default"`
 
 	// Examples ...
 	// http://json-schema.org/draft-07/json-schema-validation.html#rfc.section.10.4
-	Examples []interface{}
+	// https://json-schema.org/draft/2020-12/json-schema-validation#section-9.5
+	Examples []interface{} `json:"examples"`
 
 	// Reference is a URI reference to a schema.
 	// http://json-schema.org/draft-07/json-schema-core.html#rfc.section.8
+	// https://json-schema.org/draft/2020-12/json-schema-core#section-8.2.3
 	Reference string `json:"$ref"`
 
 	// Items represents the types that are permitted in the array.
 	// http://json-schema.org/draft-07/json-schema-validation.html#rfc.section.6.4
+	// https://json-schema.org/draft/2020-12/json-schema-validation#section-6.4
 	Items *Schema
 
 	// NameCount is the number of times the instance name was encountered across the schema.
@@ -111,22 +138,65 @@ func (ap *AdditionalProperties) UnmarshalJSON(data []byte) error {
 	return err
 }
 
+// DummySchema は、Unmarshal の受け皿
+type DummySchema Schema
+
+// UnmarshalJSON handles unmarshalling Schema from JSON.
+// https://json-schema.org/draft/2020-12/json-schema-core#section-4.3.2
+// true:  Always passes validation, as if the empty schema {}
+// false: Always fails validation, as if the schema { "not": {} }
+func (schema *Schema) UnmarshalJSON(data []byte) error {
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		if b {
+			*schema = Schema{} // {}
+		} else {
+			*schema = Schema{Not: &Schema{}} // {"not": {}}
+		}
+		return nil
+	}
+
+	dummy := DummySchema{}
+	err := json.Unmarshal(data, &dummy)
+	if err == nil {
+		*schema = Schema(dummy)
+	}
+	return err
+}
+
 // ID returns the schema URI id.
 func (schema *Schema) ID() string {
 	// prefer "$id" over "id"
-	if schema.ID06 == "" && schema.ID04 != "" {
+	if schema.ID_ == "" && schema.ID04 != "" {
 		return schema.ID04
 	}
-	return schema.ID06
+	return schema.ID_
+}
+
+// Defs returns inline re-usable schemas.
+func (schema *Schema) Defs() map[string]*Schema {
+	if len(schema.Defs_) > 0 {
+		return schema.Defs_
+	}
+	return schema.Definitions
+}
+
+// DefPath は、URI の Path を構成する definitions の文字列を返す
+func (schema *Schema) DefPath() string {
+	if len(schema.Definitions) > 0 {
+		return "definitions"
+	}
+	return "$defs"
 }
 
 // Type returns the type which is permitted or an empty string if the type field is missing.
 // The 'type' field in JSON schema also allows for a single string value or an array of strings.
 // Examples:
-//   "a" => "a", false
-//   [] => "", false
-//   ["a"] => "a", false
-//   ["a", "b"] => "a", true
+//
+//	"a" => "a", false
+//	[] => "", false
+//	["a"] => "a", false
+//	["a", "b"] => "a", true
 func (schema *Schema) Type() (firstOrDefault string, multiple bool) {
 	// We've got a single value, e.g. { "type": "object" }
 	if ts, ok := schema.TypeValue.(string); ok {
@@ -193,7 +263,7 @@ func ParseWithSchemaKeyRequired(schema string, uri *url.URL, schemaKeyRequired b
 	}
 
 	if s.ID() == "" {
-		s.ID06 = uri.String()
+		s.ID_ = uri.String()
 	}
 
 	if schemaKeyRequired && s.SchemaType == "" {
@@ -227,8 +297,8 @@ func (schema *Schema) updatePathElements() {
 		schema.PathElement = "#"
 	}
 
-	for k, d := range schema.Definitions {
-		d.PathElement = "definitions/" + k
+	for k, d := range schema.Defs() {
+		d.PathElement = schema.DefPath() + "/" + k
 		d.updatePathElements()
 	}
 
@@ -249,7 +319,7 @@ func (schema *Schema) updatePathElements() {
 }
 
 func (schema *Schema) updateParentLinks() {
-	for k, d := range schema.Definitions {
+	for k, d := range schema.Defs() {
 		d.JSONKey = k
 		d.Parent = schema
 		d.updateParentLinks()
@@ -277,7 +347,7 @@ func (schema *Schema) ensureSchemaKeyword() error {
 		}
 		return s.ensureSchemaKeyword()
 	}
-	for k, d := range schema.Definitions {
+	for k, d := range schema.Defs() {
 		if err := check(k, d); err != nil {
 			return err
 		}

@@ -149,7 +149,7 @@ func TestReturnedSchemaId(t *testing.T) {
 			expected: "",
 		},
 		{
-			input:    &Schema{ID06: "http://example.com/foo.json", ID04: "#foo"},
+			input:    &Schema{ID_: "http://example.com/foo.json", ID04: "#foo"},
 			expected: "http://example.com/foo.json",
 		},
 		{

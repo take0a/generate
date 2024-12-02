@@ -125,9 +125,9 @@ func (r *RefResolver) updateURIs(schema *Schema, baseURI url.URL, checkCurrentID
 			}
 		}
 	}
-	for k, subSchema := range schema.Definitions {
+	for k, subSchema := range schema.Defs() {
 		newBaseURI := baseURI
-		newBaseURI.Fragment += "/definitions/" + k
+		newBaseURI.Fragment += "/" + schema.DefPath() + "/" + k
 		if err := r.InsertURI(newBaseURI.String(), subSchema); err != nil {
 			return err
 		}
